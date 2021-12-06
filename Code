@@ -1,0 +1,73 @@
+import imaplib
+import pandas as pd
+import email
+from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
+import re
+import docx2txt
+from datetime import datetime
+from datetime import timedelta, date
+
+listf = []
+
+mail = imaplib.IMAP4_SSL('imap.gmail.com')
+# imaplib module implements connection based on IMAPv4 protocol
+mail.login('raonslnin@gmail.com', 'railmfbiqyisykxk')
+
+mail.select('"Indiamart-Eqnuiry"')
+result, data = mail.search( None, "ALL")
+
+found = False
+# search and return uids instead
+i = len(data[0].split()) # data[0] is a space separate string
+for x in range(i):
+    latest_email_uid = data[0].split()[x] # unique ids wrt label selected
+    result, email_data = mail.uid('fetch', latest_email_uid, '(RFC822)')
+# fetch the email body (RFC822) for the given ID
+    raw_email = email_data[0][1]
+    raw_email_string = raw_email.decode('utf-8')
+    # converts byte literal to string removing b''
+    email_message = email.message_from_string(raw_email_string)
+    # this will loop through all the available multiparts in mail
+    for part in email_message.walk():
+        if part.get_content_type() == "text/plain": # ignore attachments/html
+            body = part.get_payload(decode=True)
+            soup = BeautifulSoup(body, 'html.parser')
+            content = str(soup)
+            
+            word = content.split()
+            l = len(word)
+            for i in range(0,l):
+                if(word[i] == "Information:"):
+                    name = word[i+1]
+
+                    
+            pattern = re.compile(r'[a-zA-Z0-9-\.]+@[a-zA-Z0-9-\.]*\.(com|edu|net)')
+            matches = pattern.finditer(content)
+            for x in matches:
+                if(x.group(0) != 'support@indiamart.com'):
+                    ie = x.group(0)
+                    found = True
+                    break
+                elif(x.group(0) == '' or ' '):
+                    ie = ' '
+                        
+            number = re.compile("(\+91)?(-)?\s*?(91)?\s*?(\d{3})-?\s*?(\d{3})-?\s*?(\d{4})")
+            num =number.finditer(content)
+            for i in num:
+                if(i.group(0) != '096-9696-9696' and ' 0969696969'):
+                    phon = i.group(0)
+                    ph = ''
+                    for i in range(4,len(phon)):
+                        ph = ph + phon[i]
+                    found = True
+                    break  
+                elif(i.group(0) == '' or ' '):
+                    phon = ' '
+                
+            col = [name, ie, ph]
+            listf.append(col)
+            print()
+df = pd.DataFrame(listf, columns = ['Name', 'E-mail', 'Phone Number'])
+df.to_csv('E:\\DataWhole.csv')
+            
